@@ -208,3 +208,382 @@ sap.ui.define([
 
 위 단계를 따라가며 SAPUI5 기반의 Master-Detail 프로그램을 구현하실 수 있습니다. 추가적인 기능이나 변경 사항이 필요하다면 언제든지 알려주세요!
 ```
+
+```markdown
+# SAPUI5와 OData 통신 설정
+
+OData와의 통신을 위해서는 SAPUI5에서 제공하는 ODataModel을 사용하여 데이터를 가져오거나 수정하는 작업을 처리해야 합니다. 아래에 OData와 통신하는 소스를 추가하는 방법을 설명하겠습니다.
+
+## 1단계: OData 모델 설정
+
+먼저, SAPUI5 애플리케이션에서 OData 서비스를 연결하는 모델을 설정해야 합니다. 이를 위해 `Component.js` 파일에 OData 모델을 초기화합니다.
+
+### Component.js에 OData 모델 설정
+
+```javascript
+sap.ui.define([
+    "sap/ui/core/UIComponent",
+    "sap/ui/model/odata/v2/ODataModel",
+    "sap/ui/model/json/JSONModel",
+    "zlistreport/model/models"
+], function (UIComponent, ODataModel, JSONModel, models) {
+    "use strict";
+
+    return UIComponent.extend("zlistreport.Component", {
+        metadata: {
+            manifest: "json"
+        },
+        init: function () {
+            // 부모 클래스의 init을 호출하여 기본 초기화
+            UIComponent.prototype.init.apply(this, arguments);
+
+            // OData 모델 생성
+            var oDataModel = new ODataModel("/odata/service/url", {
+                json: true, // JSON 포맷으로 데이터 처리
+                loadMetadataAsync: true // 메타데이터 비동기 로딩
+            });
+
+            // 모델을 뷰에 설정
+            this.setModel(oDataModel);
+
+            // 기본 모델 설정 (예: 로컬 모델)
+            var oLocalModel = new JSONModel({
+                name: "",
+                age: "",
+                gender: "",
+                reg_user: "",
+                reg_date: ""
+            });
+            this.setModel(oLocalModel, "local");
+        }
+    });
+});
+```
+
+여기에서 `/odata/service/url` 부분은 실제 OData 서비스 URL로 바꾸셔야 합니다. SAP 시스템에서 제공하는 OData 서비스 URL을 사용하거나, 테스트를 위해 적절한 URL을 넣어주세요.
+
+## 2단계: 데이터를 OData 서비스로 CRUD하기
+
+### 2.1 Create (데이터 생성)
+
+`onCreate` 함수에서 새 데이터를 생성하는 방법을 추가합니다. ODataModel의 `create` 메소드를 사용하여 데이터를 서비스에 전송할 수 있습니다.
+
+```javascript
+onCreate: function () {
+    var oName = this.getView().byId("nameInput").getValue();
+    var oAge = this.getView().byId("ageInput").getValue();
+    var oGender = this.getView().byId("genderInput").getValue();
+    var oRegUser = this.getView().byId("regUserInput").getValue();
+    var oRegDate = this.getView().byId("regDateInput").getValue();
+
+    // 유효성 검사
+    if (oName.length > 20) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationNameLength"));
+        return;
+    }
+    if (isNaN(oAge)) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationAgeNumber"));
+        return;
+    }
+    if (oAge.length > 3) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationAgeLength"));
+        return;
+    }
+    if (!oName || !oAge) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationNameRequired"));
+        return;
+    }
+
+    // OData에 데이터 생성
+    var oEntry = {
+        name: oName,
+        age: oAge,
+        gender: oGender,
+        reg_user: oRegUser,
+        reg_date: oRegDate
+    };
+
+    // ODataModel의 create 메소드 호출
+    var oODataModel = this.getOwnerComponent().getModel();
+    oODataModel.create("/Master", oEntry, {
+        success: function () {
+            MessageBox.success("Data created successfully!");
+        },
+        error: function (oError) {
+            MessageBox.error("Error creating data.");
+        }
+    });
+}
+```
+
+### 2.2 Read (데이터 조회)
+
+Master 리스트에서 데이터를 읽어오는 부분은 OData 모델을 사용하여 데이터를 가져옵니다. ListBinding을 통해 OData 서비스에서 데이터를 가져옵니다.
+
+```javascript
+onInit: function () {
+    var oODataModel = this.getOwnerComponent().getModel();
+    // OData 모델을 사용하여 데이터를 가져옴
+    var oList = this.getView().byId("masterList");
+    var oBinding = oList.getBinding("items");
+    oBinding.filter([]);
+    oODataModel.read("/Master", {
+        success: function (oData) {
+            // 데이터가 정상적으로 로드되면 필터를 제거하고 리스트를 업데이트
+            oBinding.setContext(oData);
+        },
+        error: function () {
+            MessageBox.error("Error loading data.");
+        }
+    });
+}
+```
+
+### 2.3 Update (데이터 수정)
+
+`onEdit` 함수에서 데이터를 수정하는 방법을 추가합니다. OData 모델의 `update` 메소드를 사용하여 데이터를 수정할 수 있습니다.
+
+```javascript
+onEdit: function () {
+    var oName = this.getView().byId("nameInput").getValue();
+    var oAge = this.getView().byId("ageInput").getValue();
+    var oGender = this.getView().byId("genderInput").getValue();
+    var oRegUser = this.getView().byId("regUserInput").getValue();
+    var oRegDate = this.getView().byId("regDateInput").getValue();
+
+    // 수정할 데이터 객체
+    var oEntry = {
+        name: oName,
+        age: oAge,
+        gender: oGender,
+        reg_user: oRegUser,
+        reg_date: oRegDate
+    };
+
+    var oODataModel = this.getOwnerComponent().getModel();
+    var sPath = "/Master('" + oName + "')"; // 수정할 엔터티의 경로
+
+    // OData 모델을 사용하여 데이터를 업데이트
+    oODataModel.update(sPath, oEntry, {
+        success: function () {
+            MessageBox.success("Data updated successfully!");
+        },
+        error: function () {
+            MessageBox.error("Error updating data.");
+        }
+    });
+}
+```
+
+### 2.4 Delete (데이터 삭제)
+
+데이터를 삭제하는 부분도 추가합니다. OData 모델의 `remove` 메소드를 사용하여 데이터를 삭제할 수 있습니다.
+
+```javascript
+onDelete: function () {
+    var oName = this.getView().byId("nameInput").getValue();
+    var oODataModel = this.getOwnerComponent().getModel();
+    var sPath = "/Master('" + oName + "')"; // 삭제할 엔터티의 경로
+
+    // OData 모델을 사용하여 데이터를 삭제
+    oODataModel.remove(sPath, {
+        success: function () {
+            MessageBox.success("Data deleted successfully!");
+        },
+        error: function () {
+            MessageBox.error("Error deleting data.");
+        }
+    });
+}
+```
+
+## 3단계: OData 서비스 URL 및 권한 설정
+
+OData 서비스 URL을 SAP 시스템에서 제공하는 실제 URL로 설정하세요. 예를 들어, SAP Gateway에서 제공하는 서비스 URL을 사용해야 합니다. 또한, OData 서비스에 대해 필요한 권한을 적절하게 설정해야 합니다.
+
+## 4단계: 실행 및 테스트
+
+이제 SAPUI5 애플리케이션을 실행하여 OData와의 CRUD 작업을 테스트합니다. 데이터가 OData 서비스와 정상적으로 연결되고 CRUD 작업이 잘 작동하는지 확인하세요.
+
+## 요약
+
+- OData 모델을 설정하고, create, read, update, remove 메소드를 사용하여 데이터를 CRUD합니다.
+- 각 메소드에서는 성공 및 오류 콜백을 통해 성공 메시지 또는 오류 메시지를 처리합니다.
+- ODataModel을 사용하여 SAP 시스템의 OData 서비스를 통해 데이터를 관리합니다.
+
+위와 같이 SAPUI5와 OData 간의 통신을 설정할 수 있습니다. 추가적인 질문이 있으시면 언제든지 질문해 주세요!
+```
+```markdown
+# Confirmation Dialog for Create, Update, Delete Actions
+
+사용자가 Create, Update, Delete 버튼을 클릭할 때 최종 확인을 위한 확인 창을 추가하려면 `MessageBox`를 사용하여 사용자가 선택을 확인할 수 있도록 해야 합니다. 이 확인 창은 작업을 실행하기 전에 사용자가 의도를 다시 한 번 확인할 수 있도록 도와줍니다.
+
+## 1단계: Create 버튼 확인 창 추가
+
+Create 버튼을 클릭하면 사용자가 데이터를 생성하기 전에 확인할 수 있도록 `MessageBox.confirm`를 사용합니다. 사용자가 확인을 클릭하면 데이터를 생성하고, 취소를 클릭하면 아무 작업도 하지 않습니다.
+
+```javascript
+onCreate: function () {
+    var oName = this.getView().byId("nameInput").getValue();
+    var oAge = this.getView().byId("ageInput").getValue();
+    var oGender = this.getView().byId("genderInput").getValue();
+    var oRegUser = this.getView().byId("regUserInput").getValue();
+    var oRegDate = this.getView().byId("regDateInput").getValue();
+
+    // 유효성 검사
+    if (oName.length > 20) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationNameLength"));
+        return;
+    }
+    if (isNaN(oAge)) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationAgeNumber"));
+        return;
+    }
+    if (oAge.length > 3) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationAgeLength"));
+        return;
+    }
+    if (!oName || !oAge) {
+        MessageBox.warning(this.getView().getModel("i18n").getResourceBundle().getText("validationNameRequired"));
+        return;
+    }
+
+    // 확인 창을 띄우고, 사용자가 확인하면 데이터 생성
+    MessageBox.confirm(
+        this.getView().getModel("i18n").getResourceBundle().getText("createConfirmation"),
+        {
+            actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+            onClose: function (sAction) {
+                if (sAction === MessageBox.Action.YES) {
+                    var oEntry = {
+                        name: oName,
+                        age: oAge,
+                        gender: oGender,
+                        reg_user: oRegUser,
+                        reg_date: oRegDate
+                    };
+                    var oODataModel = this.getOwnerComponent().getModel();
+                    oODataModel.create("/Master", oEntry, {
+                        success: function () {
+                            MessageBox.success("Data created successfully!");
+                        },
+                        error: function (oError) {
+                            MessageBox.error("Error creating data.");
+                        }
+                    });
+                }
+            }.bind(this)
+        }
+    );
+}
+```
+
+## 2단계: Update 버튼 확인 창 추가
+
+Update 버튼 클릭 시, 사용자가 데이터를 업데이트할지 최종적으로 확인할 수 있도록 `MessageBox.confirm`을 추가합니다.
+
+```javascript
+onEdit: function () {
+    var oName = this.getView().byId("nameInput").getValue();
+    var oAge = this.getView().byId("ageInput").getValue();
+    var oGender = this.getView().byId("genderInput").getValue();
+    var oRegUser = this.getView().byId("regUserInput").getValue();
+    var oRegDate = this.getView().byId("regDateInput").getValue();
+    var oEntry = {
+        name: oName,
+        age: oAge,
+        gender: oGender,
+        reg_user: oRegUser,
+        reg_date: oRegDate
+    };
+
+    // 확인 창을 띄우고, 사용자가 확인하면 데이터 수정
+    MessageBox.confirm(
+        this.getView().getModel("i18n").getResourceBundle().getText("editConfirmation"),
+        {
+            actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+            onClose: function (sAction) {
+                if (sAction === MessageBox.Action.YES) {
+                    var oODataModel = this.getOwnerComponent().getModel();
+                    var sPath = "/Master('" + oName + "')"; // 수정할 엔터티의 경로
+
+                    // OData 모델을 사용하여 데이터를 업데이트
+                    oODataModel.update(sPath, oEntry, {
+                        success: function () {
+                            MessageBox.success("Data updated successfully!");
+                        },
+                        error: function () {
+                            MessageBox.error("Error updating data.");
+                        }
+                    });
+                }
+            }.bind(this)
+        }
+    );
+}
+```
+
+## 3단계: Delete 버튼 확인 창 추가
+
+Delete 버튼 클릭 시, 사용자가 데이터를 삭제할지 확인할 수 있도록 `MessageBox.confirm`을 추가합니다.
+
+```javascript
+onDelete: function () {
+    var oName = this.getView().byId("nameInput").getValue();
+
+    // 확인 창을 띄우고, 사용자가 확인하면 데이터 삭제
+    MessageBox.confirm(
+        this.getView().getModel("i18n").getResourceBundle().getText("deleteConfirmation"),
+        {
+            actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+            onClose: function (sAction) {
+                if (sAction === MessageBox.Action.YES) {
+                    var oODataModel = this.getOwnerComponent().getModel();
+                    var sPath = "/Master('" + oName + "')"; // 삭제할 엔터티의 경로
+
+                    // OData 모델을 사용하여 데이터를 삭제
+                    oODataModel.remove(sPath, {
+                        success: function () {
+                            MessageBox.success("Data deleted successfully!");
+                        },
+                        error: function () {
+                            MessageBox.error("Error deleting data.");
+                        }
+                    });
+                }
+            }.bind(this)
+        }
+    );
+}
+```
+
+## 4단계: i18n 파일에 메시지 추가
+
+각 작업에 대한 확인 메시지를 i18n 파일에 추가해야 합니다.
+
+```properties
+# i18n.properties (영어)
+createConfirmation=Are you sure you want to create this record?
+editConfirmation=Are you sure you want to edit this record?
+deleteConfirmation=Are you sure you want to delete this record?
+
+# i18n_ko.properties (한국어)
+createConfirmation=이 레코드를 생성하시겠습니까?
+editConfirmation=이 레코드를 수정하시겠습니까?
+deleteConfirmation=이 레코드를 삭제하시겠습니까?
+```
+
+## 5단계: 실행 및 테스트
+
+위 코드를 적용한 후, 애플리케이션을 실행하고 각 버튼을 클릭하여 확인 창이 정상적으로 표시되는지, 사용자가 작업을 확인하고 나서 데이터가 정상적으로 처리되는지 테스트합니다.
+
+## 요약
+
+**MessageBox.confirm**를 사용하여 사용자가 데이터를 Create, Update, Delete하기 전에 최종 확인을 할 수 있는 창을 띄웁니다.
+
+사용자가 YES를 선택하면 데이터가 처리되고, NO를 선택하면 작업이 취소됩니다.
+
+각 작업에 대한 확인 메시지는 i18n 파일에서 관리하여 다국어 지원을 제공합니다.
+
+이렇게 하면 사용자가 데이터를 수정하거나 삭제할 때 실수로 작업을 진행하지 않도록 확인을 거칠 수 있습니다.
+```
