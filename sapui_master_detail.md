@@ -1,11 +1,15 @@
 ```markdown
 # SAPUI5로 Master-Detail 프로그램 만들기
 
-이 문서에서는 SAPUI5로 Master-Detail 프로그램을 단계별로 구현하는 방법을 설명하겠습니다. 이 프로그램은 CRUD 기능을 지원하고, i18n을 통해 다국어를 지원하며, 각 필드에 대해 유효성 검사와 경고 처리를 포함합니다.
+- 이 문서에서는 SAPUI5로 Master-Detail 프로그램을 단계별로 구현하는 방법을 설명하겠습니다.
+- 이 프로그램은 CRUD 기능을 지원하고,
+- i18n을 통해 다국어를 지원하며,
+- 각 필드에 대해 유효성 검사와 경고 처리를 포함합니다.
 
 ## 1단계: SAPUI5 프로젝트 생성
 
-먼저, SAP Web IDE 또는 SAP Business Application Studio에서 새 SAPUI5 프로젝트를 생성합니다. 프로젝트 이름은 `zlistreport`로 설정하고, 필요한 기본 설정을 구성합니다.
+- SAP Web IDE 또는 SAP Business Application Studio에서 새 SAPUI5 프로젝트를 생성합니다.
+- 프로젝트 이름은 `zlistreport`로 설정하고, 필요한 기본 설정을 구성합니다.
 
 ## 2단계: 모델 및 데이터 구조 정의
 
